@@ -1,12 +1,9 @@
 package main
 
-import (
-	"fmt"
-
-	something "github.com/hwan20c/learngo/somthing"
-)
+import "fmt"
 
 func main() {
-	fmt.Println("Hello world")
-	something.SayHello()
+	name := "nico"
+	name = "lynn"
+	fmt.Println(name)
 }
