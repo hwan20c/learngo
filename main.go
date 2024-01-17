@@ -1,15 +1,14 @@
 package main
 
 import (
-	"encoding/csv"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	ccsv "github.com/tsak/concurrent-csv-writer"
 )
 
 type extractedJob struct {
@@ -23,37 +22,24 @@ var baseURL string = "https://www.saramin.co.kr/zf_user/search/recruit?&searchwo
 
 func main() {
 	var jobs []extractedJob
+	c := make(chan []extractedJob)
 	totalPages := getPages()
 
 	for i := 0; i < totalPages; i++ {
-		extractedJobs := getPage(i)
-		jobs = append(jobs, extractedJobs...)
+		go getPage(i, c)
+	}
+
+	for i := 0; i < totalPages; i++ {
+		extractedJob := <-c
+		jobs = append(jobs, extractedJob...)
 	}
 
 	writeJobs(jobs)
+
 	fmt.Println("Done, extracted", len(jobs))
 }
 
-func writeJobs(jobs []extractedJob) {
-	file, err := os.Create("Jobs.csv")
-	checkErr(err)
-
-	w := csv.NewWriter(file)
-	defer w.Flush()
-
-	headers := []string{"Link", "Title", "Location", "Summary"}
-
-	wErr := w.Write(headers)
-	checkErr(wErr)
-
-	for _, job := range jobs {
-		jobSlice := []string{"https://www.saramin.co.kr/zf_user/jobs/relay/view?isMypage=no&rec_idx=" + job.id, job.title, job.location, job.summary}
-		jwErr := w.Write(jobSlice)
-		checkErr(jwErr)
-	}
-}
-
-func getPage(page int) []extractedJob {
+func getPage(page int, mainC chan<- []extractedJob) {
 	var jobs []extractedJob
 	c := make(chan extractedJob)
 	pageURL := baseURL + "&recruitPage=" + strconv.Itoa(page+1)
@@ -78,7 +64,7 @@ func getPage(page int) []extractedJob {
 		jobs = append(jobs, job)
 	}
 
-	return jobs
+	mainC <- jobs
 }
 
 func extracteJob(card *goquery.Selection, c chan<- extractedJob) {
@@ -111,6 +97,47 @@ func getPages() int {
 	})
 
 	return pages
+}
+
+func writeJobs(jobs []extractedJob) {
+	csv, err := ccsv.NewCsvWriter("Jobs.csv")
+	checkErr(err)
+
+	defer csv.Close()
+	headers := []string{"Link", "Title", "Location", "Summary"}
+	wErr := csv.Write(headers)
+	checkErr(wErr)
+
+	done := make(chan bool)
+	for _, job := range jobs {
+		go func(job extractedJob) {
+			jobSlice := []string{"https://www.saramin.co.kr/zf_user/jobs/relay/view?isMypage=no&rec_idx=" + job.id, job.title, job.location, job.summary}
+			jwErr := csv.Write(jobSlice)
+			checkErr(jwErr)
+			done <- true
+		}(job)
+	}
+
+	for i := 0; i < len(jobs); i++ {
+		<-done
+	}
+
+	// file, err := os.Create("Jobs.csv")
+	// checkErr(err)
+
+	// w := csv.NewWriter(file)
+	// defer w.Flush()
+
+	// headers := []string{"Link", "Title", "Location", "Summary"}
+
+	// wErr := w.Write(headers)
+	// checkErr(wErr)
+
+	// for _, job := range jobs {
+	// 	jobSlice := []string{"https://www.saramin.co.kr/zf_user/jobs/relay/view?isMypage=no&rec_idx=" + job.id, job.title, job.location, job.summary}
+	// 	jwErr := w.Write(jobSlice)
+	// 	checkErr(jwErr)
+	// }
 }
 
 func checkErr(err error) {
