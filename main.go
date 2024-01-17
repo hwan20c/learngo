@@ -122,22 +122,6 @@ func writeJobs(jobs []extractedJob) {
 		<-done
 	}
 
-	// file, err := os.Create("Jobs.csv")
-	// checkErr(err)
-
-	// w := csv.NewWriter(file)
-	// defer w.Flush()
-
-	// headers := []string{"Link", "Title", "Location", "Summary"}
-
-	// wErr := w.Write(headers)
-	// checkErr(wErr)
-
-	// for _, job := range jobs {
-	// 	jobSlice := []string{"https://www.saramin.co.kr/zf_user/jobs/relay/view?isMypage=no&rec_idx=" + job.id, job.title, job.location, job.summary}
-	// 	jwErr := w.Write(jobSlice)
-	// 	checkErr(jwErr)
-	// }
 }
 
 func checkErr(err error) {
